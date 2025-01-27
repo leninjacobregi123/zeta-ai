@@ -34,8 +34,5 @@ def download_audio(video_url, output_filename="output_audio.wav"):
 if __name__ == "__main__":
     print("YouTube Audio Downloader")
     video_url = input("Enter the YouTube video URL: ").strip()
-    
-    # Use a proper string for the filename
     output_filename = "output_audio.wav"
-    
     download_audio(video_url, output_filename)
