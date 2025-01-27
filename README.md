@@ -151,21 +151,6 @@ It will prompt you to enter your query. The assistant will retrieve relevant sni
 
 ---
 
-## File Structure
-
-```plaintext
-.
-├── download_audio.py                # Script to download YouTube audio and convert to WAV
-├── transcribe_audio.py              # Script to transcribe the audio file and generate timestamps
-├── summarize_transcription.py       # Script to summarize the transcription
-├── generate_flashcards.py           # Script to generate flashcards from the transcription
-├── rag_query.py                     # Script for interacting with the assistant using RAG
-├── requirements.txt                 # Python dependencies
-├── transcription_with_timestamps.json  # Transcription output with timestamps (generated after transcription)
-└── output_audio.wav                 # Audio file output (generated after download)
-```
-
----
 
 ## Troubleshooting
 
