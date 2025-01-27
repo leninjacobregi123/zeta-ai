@@ -82,31 +82,7 @@ def main():
     chapters = response["message"]["content"]
     print(chapters)
 
-    # System prompt for flashcard creation
-    FLASHCARD_PROMPT = """
-    You are an AI assistant. Your task is to create 20 concise flashcards based on the provided transcription and its summary. Each flashcard should have a 'Question' and an 'Answer'. Ensure the content covers key points and concepts effectively.
-    """
-
-    # User prompt for flashcards
-    USER_PROMPT_FLASHCARDS = f"""
-    Create 20 flashcards from the following transcription and summary:
-    <context>
-    {all_text}\n\n{chapters}
-    </context>
-    """
-
-    # Call Ollama's chat model for flashcard generation
-    flashcards_response = ollama.chat(
-        model="llama3.2",
-        messages=[
-            {"role": "system", "content": FLASHCARD_PROMPT},
-            {"role": "user", "content": USER_PROMPT_FLASHCARDS},
-        ],
-    )
-
-    # Extract and print the generated flashcards
-    print("Generated flashcards:")
-    print(flashcards_response["message"]["content"])
+ 
 
 if __name__ == "__main__":
     main()
