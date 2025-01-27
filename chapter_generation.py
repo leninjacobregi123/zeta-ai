@@ -2,87 +2,77 @@ import json
 from pymilvus import MilvusClient
 import ollama
 from tqdm import tqdm
-import os
 
-def emb_text(text):
-    response = ollama.embeddings(model="mxbai-embed-large", prompt=text)
-    return response["embedding"]
+def retrieve_data_from_db(milvus_client, collection_name):
+    """
+    Retrieve text data from the Milvus database.
+    """
+    print("Retrieving data from the database...")
+    try:
+        results = milvus_client.query(
+            collection_name=collection_name,
+            filter="id >= 0",  # Retrieve all records (changed 'expr' to 'filter')
+            output_fields=["text"],  # Only retrieving the 'text' field
+        )
+        print(f"Retrieved {len(results)} records from the database.")
+        return [result["text"] for result in results]
+    except Exception as e:
+        print(f"Error retrieving data from the database: {e}")
+        return []
+
+def generate_chapters_from_data(text_data, max_chapters=20):
+    """
+    Generate up to 'max_chapters' chapters from the text data.
+    """
+    print(f"Generating up to {max_chapters} chapters from the text data...")
+    chapters = []
+    chapter_size = len(text_data) // max_chapters  # Divide text into roughly equal chapters
+    
+    for i in range(max_chapters):
+        start = i * chapter_size
+        end = start + chapter_size
+        if i == max_chapters - 1:  # Ensure the last chapter includes any remaining data
+            end = len(text_data)
+        chapter = " ".join(text_data[start:end])
+        chapters.append(chapter)
+        print(f"Chapter {i + 1}: {len(chapter)} characters")
+
+    return chapters
 
 def main():
+    # Load transcription with timestamps
     output_file = "transcription_with_timestamps.json"
-    embedding_file = "embeddings_cache.json"
-
-    # Load the transcription JSON
-    with open(output_file, "r", encoding="utf-8") as file:
-        transcription = json.load(file)
-
+    try:
+        with open(output_file, "r", encoding="utf-8") as file:
+            transcription = json.load(file)
+    except FileNotFoundError:
+        print(f"Error: File '{output_file}' not found. Please ensure the file exists.")
+        return
+    
     # Initialize Milvus client
     milvus_client = MilvusClient(uri="./milvus_demo.db")
     collection_name = "my_rag_collection"
+    
+    # Retrieve text data from the database
+    text_data = retrieve_data_from_db(milvus_client, collection_name)
+    
+    if not text_data:
+        print("No data found in the collection. Exiting.")
+        return
 
-    # Create collection if it does not exist
-    if milvus_client.has_collection(collection_name):
-        print("Collection already exists. Skipping creation.")
-    else:
-        embedding_dim = len(emb_text("This is a test"))
-        milvus_client.create_collection(
-            collection_name=collection_name,
-            dimension=embedding_dim,
-            metric_type="IP",
-            consistency_level="Strong",
-        )
-        print("Collection created successfully.")
+    # Generate chapters
+    chapters = generate_chapters_from_data(text_data, max_chapters=20)
 
-    # Load or generate embeddings
-    if os.path.exists(embedding_file):
-        with open(embedding_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        print("Loaded embeddings from cache.")
-    else:
-        data = []
-        for i, entry in enumerate(tqdm(transcription, desc="Creating embeddings")):
-            text = entry["text"]
-            embedding = emb_text(text)
-            data.append({"id": i, "vector": embedding, "text": text})
-        with open(embedding_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
-        print("All embeddings created and saved to cache successfully.")
+    # Display chapters
+    for i, chapter in enumerate(chapters):
+        print(f"\n--- Chapter {i + 1} ---\n")
+        print(chapter[:500])  # Display the first 500 characters of each chapter
 
-    # Insert data into Milvus
-    milvus_client.insert(collection_name=collection_name, data=data)
-    print("RAG data updated successfully.")
-
-    # System prompt for chapter generation
-    SYSTEM_PROMPT = """
-    You are an AI assistant. Your task is to organize the provided transcripts into meaningful flashcards . Each section of the tutorial must correspond to a single chapter, with a specific and descriptive heading. Use the format 'Chapter 1: [Heading]'. Group related content under the appropriate chapter and maintain chronological order.
-    """
-
-    # Combine all text from transcription
-    all_text = "\n".join([f"{entry['timestamp']} {entry['text']}" for entry in transcription])
-
-    # User prompt to generate chapters
-    USER_PROMPT = f"""
-    Organize the following transcript text into meaningful s:
-    <context>
-    {all_text}
-    </context>
-    """
-
-    # Call Ollama's chat model for chapter generation
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_PROMPT},
-        ],
-    )
-
-    # Extract and print the generated chapters
-    print("Generated chapters from transcription:")
-    chapters = response["message"]["content"]
-    print(chapters)
-
- 
+    # Optionally save chapters to a file
+    output_file = "generated_chapters.json"
+    with open(output_file, "w", encoding="utf-8") as file:
+        json.dump(chapters, file, indent=4, ensure_ascii=False)
+    print(f"\nChapters saved successfully to '{output_file}'.")
 
 if __name__ == "__main__":
     main()
